@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Reservas HIGS — Riale Hotéis</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #1a2332; padding: 24px; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e4e9f0; }
+  header h1 { font-size: 22px; color: #0a3d62; }
+  header .meta { font-size: 13px; color: #6b7a90; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: #fff; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #0a3d62; }
+  .kpi.ok { border-left-color: #16a34a; }
+  .kpi.warn { border-left-color: #f59e0b; }
+  .kpi.err { border-left-color: #dc2626; }
+  .kpi .label { font-size: 12px; color: #6b7a90; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .kpi .value { font-size: 32px; font-weight: 700; color: #1a2332; }
+  .kpi .sub { font-size: 12px; color: #6b7a90; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card h2 { font-size: 14px; color: #0a3d62; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 280px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eef1f5; }
+  th { background: #f8fafc; color: #4a5568; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .status-ok { color: #16a34a; font-weight: 600; }
+  .status-warn { color: #f59e0b; font-weight: 600; }
+  .status-err { color: #dc2626; font-weight: 600; }
+  .alert { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; color: #78350f; }
+  .alert strong { color: #78350f; }
+  footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e4e9f0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Reservas HIGS — Status do dia</h1>
+      <div class="meta">Riale Hotéis · Integrações API · Parceiro Omnibees</div>
+    </div>
+    <div class="meta" id="dtStamp">18/11/2026</div>
+  </header>
+
+  <div class="alert">
+    <strong>Atenção:</strong> 3 reservas Booking no <strong>Brisa Barra</strong> (ID origem 5341159368/1, /2, /3) foram confirmadas no HIGS mas estão com <strong>Nr. Reserva Front = -1</strong> — provável falha de transmissão para o PMS. Vale verificar manualmente.
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi ok"><div class="label">Total do dia</div><div class="value">46</div><div class="sub">todas as reservas processadas</div></div>
+    <div class="kpi ok"><div class="label">Confirmadas (migradas)</div><div class="value">46</div><div class="sub">100% de sucesso no HIGS</div></div>
+    <div class="kpi"><div class="label">Não integradas</div><div class="value">0</div><div class="sub">nenhuma pendência</div></div>
+    <div class="kpi warn"><div class="label">Com Front = -1</div><div class="value">3</div><div class="sub">verificar no PMS</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Reservas por hotel — Migradas vs Não integradas</h2>
+      <div class="chart-wrap"><canvas id="chartHotels"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Distribuição por hotel</h2>
+      <div class="chart-wrap"><canvas id="chartPie"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Origem das reservas (OTA / canal)</h2>
+      <div class="chart-wrap"><canvas id="chartOrigin"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Resumo por hotel</h2>
+      <table>
+        <thead><tr><th>Hotel</th><th class="num">Confirmadas</th><th class="num">Não integr.</th><th class="num">Alertas</th></tr></thead>
+        <tbody>
+          <tr><td>Brisa Barra</td><td class="num status-ok">21</td><td class="num">0</td><td class="num status-warn">3</td></tr>
+          <tr><td>Imperial</td><td class="num status-ok">17</td><td class="num">0</td><td class="num">0</td></tr>
+          <tr><td>Vilamar Copacabana</td><td class="num status-ok">8</td><td class="num">0</td><td class="num">0</td></tr>
+          <tr style="font-weight:700;background:#f8fafc;"><td>Total</td><td class="num status-ok">46</td><td class="num">0</td><td class="num status-warn">3</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Origem × Hotel (reservas de hoje)</h2>
+    <table>
+      <thead><tr><th>Origem</th><th class="num">Brisa</th><th class="num">Imperial</th><th class="num">Vilamar</th><th class="num">Total</th></tr></thead>
+      <tbody id="originTable"></tbody>
+    </table>
+  </div>
+
+  <footer>Snapshot gerado em 18/11/2026 · Fonte: HOTV WEB — Consulta Reservas HIGS · Parceiro Omnibees · Referente a: Inclusão</footer>
+</div>
+
+<script>
+const hotelData = {
+  labels: ['Brisa Barra', 'Imperial', 'Vilamar Copacabana'],
+  confirmadas: [21, 17, 8],
+  naoIntegradas: [0, 0, 0]
+};
+
+const originData = [
+  { origem: 'BOOKING', brisa: 11, imperial: 3, vilamar: 2 },
+  { origem: 'DESPR (Despegar)', brisa: 4, imperial: 3, vilamar: 1 },
+  { origem: 'BOOKKIN', brisa: 3, imperial: 1, vilamar: 1 },
+  { origem: 'EXPEDIA', brisa: 1, imperial: 2, vilamar: 2 },
+  { origem: 'WEBBEDS', brisa: 1, imperial: 3, vilamar: 0 },
+  { origem: 'RDCVLNW', brisa: 0, imperial: 2, vilamar: 1 },
+  { origem: 'HTLBEDS (HotelBeds)', brisa: 1, imperial: 0, vilamar: 1 },
+  { origem: 'ACDRONL', brisa: 0, imperial: 1, vilamar: 0 },
+  { origem: 'KWYCCCA', brisa: 0, imperial: 1, vilamar: 0 },
+  { origem: 'KWYBEBR', brisa: 0, imperial: 1, vilamar: 0 }
+];
+
+// Tabela origem × hotel
+const tbody = document.getElementById('originTable');
+originData.forEach(r => {
+  const total = r.brisa + r.imperial + r.vilamar;
+  tbody.insertAdjacentHTML('beforeend',
+    `<tr><td>${r.origem}</td><td class="num">${r.brisa}</td><td class="num">${r.imperial}</td><td class="num">${r.vilamar}</td><td class="num"><strong>${total}</strong></td></tr>`);
+});
+
+// Gráfico 1 — Barras por hotel
+new Chart(document.getElementById('chartHotels'), {
+  type: 'bar',
+  data: {
+    labels: hotelData.labels,
+    datasets: [
+      { label: 'Confirmadas', data: hotelData.confirmadas, backgroundColor: '#16a34a' },
+      { label: 'Não integradas', data: hotelData.naoIntegradas, backgroundColor: '#dc2626' }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+});
+
+// Gráfico 2 — Pizza distribuição
+new Chart(document.getElementById('chartPie'), {
+  type: 'doughnut',
+  data: {
+    labels: hotelData.labels,
+    datasets: [{ data: hotelData.confirmadas, backgroundColor: ['#0a3d62', '#3c6382', '#60a3bc'] }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+});
+
+// Gráfico 3 — Barras por origem
+new Chart(document.getElementById('chartOrigin'), {
+  type: 'bar',
+  data: {
+    labels: originData.map(r => r.origem),
+    datasets: [{
+      label: 'Total de reservas',
+      data: originData.map(r => r.brisa + r.imperial + r.vilamar),
+      backgroundColor: '#0a3d62'
+    }]
+  },
+  options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+});
+</script>
+</body>
+</html>
